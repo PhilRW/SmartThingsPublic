@@ -24,7 +24,7 @@ definition(
 
 preferences {
 	section("Select away mode:") {
-		input "mode", "mode"
+		input "modes", "mode", multiple: true
     }
     section("Control these thermostats:") {
         input "thermostats", "capability.thermostat", required: true, multiple: true
@@ -50,8 +50,8 @@ def initialize() {
 
 def modeChangeHandler($evnt) {
 	log.debug("location.currentMode = ${location.currentMode}")
-    log.debug("selected away mode = $mode")
-    if (location.currentMode == mode) {
+    log.debug("selected away modes = $modes")
+    if (modes.contains(location.currentMode)) {
     	thermostats.each { it.away() }
     } else {
         thermostats.each { it.present() }
