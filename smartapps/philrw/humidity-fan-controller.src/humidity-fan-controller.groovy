@@ -1,35 +1,35 @@
 /**
- *  Humidity Fan Controller
- *
- *  Copyright 2016 Philip Rosenberg-Watt
- *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
- *
- */
+*  Humidity Fan Controller
+*
+*  Copyright 2016 Philip Rosenberg-Watt
+*
+*  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+*  in compliance with the License. You may obtain a copy of the License at:
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+*  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+*  for the specific language governing permissions and limitations under the License.
+*
+*/
 definition(
     name: "Humidity Fan Controller",
     namespace: "PhilRW",
     author: "Philip Rosenberg-Watt",
-    description: "Turn on exhaust fan when humidity rises above a certain level, then turn off when it approaches a reference level.",
+    description: "Turn on exhaust fan when humidity rises above a certain level, then turn off when it approaches a reference sensor level.",
     category: "My Apps",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+    iconUrl: "http://cdn.device-icons.smartthings.com/Bath/bath6-icn.png",
+    iconX2Url: "http://cdn.device-icons.smartthings.com/Bath/bath6-icn@2x.png",
+    iconX3Url: "http://cdn.device-icons.smartthings.com/Bath/bath6-icn@2x.png")
 
 
 preferences {
-	page(name: "prefPage")
+    page(name: "prefPage")
 }
-    
+
 def prefPage() {
-	dynamicPage(name: "prefPage", title: "Humidity Fan Controller", install: true, uninstall: true) {
+    dynamicPage(name: "prefPage", title: "Humidity Fan Controller", install: true, uninstall: true) {
         section("Devices") {            
             input "theSwitch", "capability.switch", title: "Exhaust fan"
             input "rhSensor", "capability.relativeHumidityMeasurement", title: "Humidity sensor"
@@ -52,20 +52,20 @@ def prefPage() {
 
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+    log.debug "Installed with settings: ${settings}"
 
-	initialize()
+    initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+    log.debug "Updated with settings: ${settings}"
 
-	unsubscribe()
-	initialize()
+    unsubscribe()
+    initialize()
 }
 
 def initialize() {
-	subscribe(rhSensor, "humidity", rhHandler)
+    subscribe(rhSensor, "humidity", rhHandler)
     if (runOnUnoccupied) {
         subscribe(motionSensor, "motion.active", motionActiveHandler)
         subscribe(motionSensor, "motion.inactive", motionInactiveHandler)
@@ -74,20 +74,20 @@ def initialize() {
 
 def motionActiveHandler(evnt) {
     log trace "motionActiveHandler(${evnt})"
-	log debug "Motion is active, do nothing."
+    log debug "Motion is active: do nothing."
 }
 
 def motionInactiveHandler(evnt) {
     log trace "motionInactiveHandler(${evnt})"
-    log debug "Waiting ${motionSensorTimeout} minutes for motion to stop..."
-    
+    log debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
+
     runIn(60 * motionSensorTimeout, checkMotion)
 }
 
 def rhHandler(evnt) {
     log trace "rhHandler(${evnt})"
     if (runOnUnoccupied) {
-    	checkMotion()
+        checkMotion()
     } else {
         def rh = evnt.value.ToInteger()
         fanController(rh)
@@ -96,21 +96,21 @@ def rhHandler(evnt) {
 
 def checkMotion() {
     def motionState = motionSensor.currentState("motion")
-    
+
     if (motionState.value == "inactive") {
         def elapsed = now() - motionState.date.time
         def threshold = 1000 * 60 * motionSensorTimeout
 
         if (elapsed >= threshold) {
             def rh = rhSensor.currentState("humidity").IntegerValue
-            
+
             log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): control fan"
             fanController(rh)
         } else {
             log.debug "Motion has not stayed inactive long enough since last check ($elapsed ms): do nothing"
         }
     } else {
-        log.debug "Motion is active, do nothing."
+        log.debug "Motion is active: do nothing."
     }
 }
 
@@ -118,16 +118,16 @@ def checkMotion() {
 def fanController(rh) {
     def rhBase = rhReference.currentState("humidity").IntegerValue
     def rhTarget = rhBase * 1.2
-    
-    log debug "Current RH is ${rh}%, max is ${rhMax}%, target is at or below ${rhTarget}%."
-	if (rh >= rhMax) {
-    	log debug "Turning on switch..."
-    	theSwitch.on()
-    } else if (rh <= rhTarget) {
+
+    log debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
+    if (rh < rhTarget) {
         log debug "Turning off switch..."
-    	theSwitch.off()
+        theSwitch.off()
+    } else if (rh > rhMax) {
+        log debug "Turning on switch..."
+        theSwitch.on()
     } else {
-    	log debug "RH not in actionable range. Doing nothing."
+        log debug "RH not in actionable range: do nothing."
     }   
 
 }
