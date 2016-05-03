@@ -44,6 +44,7 @@ def prefPage() {
             }
         }
         section([title: "App Instance", mobileOnly: true]) {
+            icon title: "Customize icon"
             label title: "Assign a name", required: false
             mode title: "Set for specific mode(s)"
         }
@@ -73,15 +74,19 @@ def initialize() {
 }
 
 def motionActiveHandler(evnt) {
-    log trace "motionActiveHandler(${evnt})"
-    log debug "Motion is active: do nothing."
+    if (runOnUnoccupied) {
+        log trace "motionActiveHandler(${evnt})"
+        log debug "Motion is active: do nothing."
+    }
 }
 
 def motionInactiveHandler(evnt) {
-    log trace "motionInactiveHandler(${evnt})"
-    log debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
+    if (runOnUnoccupied) {
+        log trace "motionInactiveHandler(${evnt})"
+        log debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
 
-    runIn(60 * motionSensorTimeout, checkMotion)
+        runIn(60 * motionSensorTimeout, checkMotion)
+    }
 }
 
 def rhHandler(evnt) {
