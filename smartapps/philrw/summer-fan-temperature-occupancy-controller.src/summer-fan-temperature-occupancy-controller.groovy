@@ -5,8 +5,8 @@
 *
 *	Version History
 *
-*   1.1.0   2016-05-04      Optionally run automatically only when room is occupied
-*	1.0.0	2016-04-23		Initial version
+*	1.1		2016-05-04		Optionally run automatically only when room is occupied
+*	1.0		2016-04-23		Initial version
 *
 *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 *  in compliance with the License. You may obtain a copy of the License at:
