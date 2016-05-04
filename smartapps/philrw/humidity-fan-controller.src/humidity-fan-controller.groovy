@@ -44,7 +44,6 @@ def prefPage() {
             }
         }
         section([title: "App Instance", mobileOnly: true]) {
-            icon title: "Customize icon"
             label title: "Assign a name", required: false
             mode title: "Set for specific mode(s)"
         }
@@ -75,22 +74,22 @@ def initialize() {
 
 def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
-        log trace "motionActiveHandler(${evnt})"
-        log debug "Motion is active: do nothing."
+        log.trace "motionActiveHandler(${evnt})"
+        log.debug "Motion is active: do nothing."
     }
 }
 
 def motionInactiveHandler(evnt) {
     if (runOnUnoccupied) {
-        log trace "motionInactiveHandler(${evnt})"
-        log debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
+        log.trace "motionInactiveHandler(${evnt})"
+        log.debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
 
         runIn(60 * motionSensorTimeout, checkMotion)
     }
 }
 
 def rhHandler(evnt) {
-    log trace "rhHandler(${evnt})"
+    log.trace "rhHandler(${evnt})"
     if (runOnUnoccupied) {
         checkMotion()
     } else {
@@ -107,9 +106,9 @@ def checkMotion() {
         def threshold = 1000 * 60 * motionSensorTimeout
 
         if (elapsed >= threshold) {
-            def rh = rhSensor.currentState("humidity").IntegerValue
+            def rh = rhSensor.currentValue("humidity")
 
-            log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): control fan"
+            log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): fanController(${rh})"
             fanController(rh)
         } else {
             log.debug "Motion has not stayed inactive long enough since last check ($elapsed ms): do nothing"
@@ -121,18 +120,18 @@ def checkMotion() {
 
 
 def fanController(rh) {
-    def rhBase = rhReference.currentState("humidity").IntegerValue
+    def rhBase = rhReference.currentValue("humidity")
     def rhTarget = rhBase * 1.2
 
-    log debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
+    log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (rh < rhTarget) {
-        log debug "Turning off switch..."
+        log.debug "Turning off switch..."
         theSwitch.off()
     } else if (rh > rhMax) {
-        log debug "Turning on switch..."
+        log.debug "Turning on switch..."
         theSwitch.on()
     } else {
-        log debug "RH not in actionable range: do nothing."
+        log.debug "RH not in actionable range: do nothing."
     }   
 
 }
