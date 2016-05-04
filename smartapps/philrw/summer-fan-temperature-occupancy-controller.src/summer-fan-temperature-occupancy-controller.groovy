@@ -73,7 +73,7 @@ def updated() {
 
 def initialize() {
     log.trace "Summer Fan Occupancy Controller - initialize()"
-    subscribe(theThermostat, "temperature", checkTemp)
+    subscribe(theThermostat, "temperature", tempChangeHandler)
     if (runOnOccupied) {
         subscribe(theMotionSensor, "motion.active", motionActiveHandler)
         subscribe(theMotionSensor, "motion.inactive", motionInactiveHandler)
