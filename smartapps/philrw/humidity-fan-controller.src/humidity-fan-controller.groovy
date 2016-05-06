@@ -75,7 +75,9 @@ def initialize() {
 def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt})"
-        log.debug "Motion is active: do nothing."
+        log.debug "Motion is active: turn off the fan."
+        
+        theSwitch.off()
     }
 }
 
@@ -93,7 +95,7 @@ def rhHandler(evnt) {
     if (runOnUnoccupied) {
         checkMotion()
     } else {
-        def rh = evnt.value.ToInteger()
+        def rh = evnt.value.toInteger()
         fanController(rh)
     }
 }
