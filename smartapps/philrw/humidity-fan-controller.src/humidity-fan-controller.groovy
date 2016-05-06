@@ -17,7 +17,7 @@ definition(
     name: "Humidity Fan Controller",
     namespace: "PhilRW",
     author: "Philip Rosenberg-Watt",
-    description: "Turn on exhaust fan when humidity rises above a certain level, then turn off when it approaches a reference sensor level.",
+    description: "Turn on exhaust fan when humidity rises above a certain level, then turn off when it reaches a different level.",
     category: "My Apps",
     iconUrl: "http://cdn.device-icons.smartthings.com/Bath/bath6-icn.png",
     iconX2Url: "http://cdn.device-icons.smartthings.com/Bath/bath6-icn@2x.png",
@@ -33,10 +33,10 @@ def prefPage() {
         section("Devices") {            
             input "theSwitch", "capability.switch", title: "Exhaust fan"
             input "rhSensor", "capability.relativeHumidityMeasurement", title: "Humidity sensor"
-            input "rhReference", "capability.relativeHumidityMeasurement", title: "Reference humidity sensor", description: "Somewhere else that is the target RH"
         }
         section("Settings") {
-            input "rhMax", "number", title: "Turn on fan at or above (%RH)", defaultValue: 60
+            input "rhMax", "number", title: "Turn on fan above this level (RH%)", defaultValue: 60
+            input "rhTarget", "number", title: "Turn off fan below this level (RH%)", defaultValue: 50
             input "runOnUnoccupied", "bool", title: "Only run when room is unoccupied?", defaultValue: false, submitOnChange: true
             if (runOnUnoccupied) {
                 input "motionSensor", "capability.motionSensor", title: "Which motion sensor?"
@@ -65,6 +65,8 @@ def updated() {
 }
 
 def initialize() {
+	log.trace "initialize()"
+
     subscribe(rhSensor, "humidity", rhHandler)
     if (runOnUnoccupied) {
         subscribe(motionSensor, "motion.active", motionActiveHandler)
@@ -76,7 +78,7 @@ def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt})"
         log.debug "Motion is active: turn off the fan."
-        
+
         theSwitch.off()
     }
 }
@@ -92,6 +94,7 @@ def motionInactiveHandler(evnt) {
 
 def rhHandler(evnt) {
     log.trace "rhHandler(${evnt})"
+    
     if (runOnUnoccupied) {
         checkMotion()
     } else {
@@ -101,6 +104,8 @@ def rhHandler(evnt) {
 }
 
 def checkMotion() {
+	log.trace "checkMotion()"
+
     def motionState = motionSensor.currentState("motion")
 
     if (motionState.value == "inactive") {
@@ -122,8 +127,7 @@ def checkMotion() {
 
 
 def fanController(rh) {
-    def rhBase = rhReference.currentValue("humidity")
-    def rhTarget = rhBase * 1.2
+    log.trace "fanController(${rh})"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (rh < rhTarget) {
