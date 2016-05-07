@@ -143,10 +143,15 @@ def fanController(rh) {
     log.trace "fanController(${rh})"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
-    if (state.runFan && rh < rhTarget) {
-        log.debug "Turning off switch..."
-        theSwitch.off()
-        state.runFan = false
+    if (state.runFan) {
+        if (rh < rhTarget) {
+            log.debug "Turning off switch..."
+            theSwitch.off()
+            state.runFan = false
+        } else {
+            log.debug "Reactivating switch..."
+            theSwitch.on()
+        }
     } else if (!state.runFan && rh > rhMax) {
         log.debug "Turning on switch..."
         theSwitch.on()
