@@ -148,7 +148,7 @@ def fanController(rh) {
             log.debug "Turning off switch..."
             theSwitch.off()
             state.runFan = false
-        } else {
+        } else if (runOnUnoccupied) {
             log.debug "Reactivating switch..."
             theSwitch.on()
         }
