@@ -137,7 +137,7 @@ def checkMotion() {
 
     def motionState = theMotionSensor.currentState("motion")
     def elapsed = now() - motionState.date.time
-    def threshold = 1000 * 60 * motionSensorTimeout
+    def threshold = 1000 * ( ( 60 * motionSensorTimeout ) - 1 )
 
     if (motionState.value == "inactive" && elapsed >= threshold) {
         log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): turn fan(s) off"
