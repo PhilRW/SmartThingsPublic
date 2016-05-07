@@ -40,7 +40,11 @@ def prefPage() {
             input "runOnUnoccupied", "bool", title: "Only run when room is unoccupied?", defaultValue: false, submitOnChange: true
             if (runOnUnoccupied) {
                 input "motionSensor", "capability.motionSensor", title: "Which motion sensor?"
-                input "motionSensorTimeout", "number", title: "After how many minutes of inactivity?"
+                input "motionSensorTimeout", "number", title: "After how many seconds of inactivity?"
+                input "useThermostatFan", "bool", title: "Use thermostat fan?", defaultValue: false, submitOnChange: true
+                if (useThermostatFan) {
+                    input "thermostatFan", "capability.thermostatFanMode", title: "Thermostat fan"
+                }
             }
         }
         section([title: "App Instance", mobileOnly: true]) {
@@ -65,7 +69,10 @@ def updated() {
 }
 
 def initialize() {
-	log.trace "initialize()"
+    log.trace "initialize()"
+
+    state.runFan = false
+    state.runThermostatFan = false
 
     subscribe(rhSensor, "humidity", rhHandler)
     if (runOnUnoccupied) {
@@ -77,9 +84,12 @@ def initialize() {
 def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt})"
-        log.debug "Motion is active: turn off the fan."
 
-        theSwitch.off()
+        if (state.runFan) {
+            log.debug "Fan is running, turning off switch..."
+
+            theSwitch.off()
+        }
     }
 }
 
@@ -88,37 +98,40 @@ def motionInactiveHandler(evnt) {
         log.trace "motionInactiveHandler(${evnt})"
         log.debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
 
-        runIn(60 * motionSensorTimeout, checkMotion)
+        runIn(motionSensorTimeout, checkMotion)
     }
 }
 
 def rhHandler(evnt) {
     log.trace "rhHandler(${evnt})"
-    
+    def rh = evnt.value.toInteger()
+
     if (runOnUnoccupied) {
         checkMotion()
+        if (useThermostatFan) {
+            thermostatFanController(rh)
+        }
     } else {
-        def rh = evnt.value.toInteger()
         fanController(rh)
     }
 }
 
 def checkMotion() {
-	log.trace "checkMotion()"
+    log.trace "checkMotion()"
 
     def motionState = motionSensor.currentState("motion")
 
     if (motionState.value == "inactive") {
         def elapsed = now() - motionState.date.time
-        def threshold = 1000 * 60 * motionSensorTimeout
+        def threshold = 990 * motionSensorTimeout
 
         if (elapsed >= threshold) {
             def rh = rhSensor.currentValue("humidity")
 
-            log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): fanController(${rh})"
+            log.debug "Motion has stayed inactive long enough since last check (${elapsed} ms): fanController(${rh})"
             fanController(rh)
         } else {
-            log.debug "Motion has not stayed inactive long enough since last check ($elapsed ms): do nothing"
+            log.debug "Motion has not stayed inactive long enough since last check (${elapsed} ms): do nothing"
         }
     } else {
         log.debug "Motion is active: do nothing."
@@ -130,14 +143,35 @@ def fanController(rh) {
     log.trace "fanController(${rh})"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
-    if (rh < rhTarget) {
+    if (state.runFan && rh < rhTarget) {
         log.debug "Turning off switch..."
         theSwitch.off()
-    } else if (rh > rhMax) {
+        state.runFan = false
+    } else if (!state.runFan && rh > rhMax) {
         log.debug "Turning on switch..."
         theSwitch.on()
+        state.runFan = true
     } else {
         log.debug "RH not in actionable range: do nothing."
     }   
+}
 
+
+def thermostatFanController(rh) {
+    log.trace "thermostatFanController(${rh})"
+
+    log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
+    if (state.runThermostatFan && rh < rhTarget) {
+        log.debug "Resetting thermostat fan..."
+        thermostatFan.setThermostatFanMode(state.previousFanMode)
+        state.runThermostatFan = false
+    } else if (!state.runThermostatFan && rh > rhMax) {
+        log.debug "Turning on thermostat fan..."
+        state.previousFanMode = thermostatFan.currentValue("thermostatFanMode")
+        log.trace "Thermostat fan was set to ${state.previousFanMode}."
+        thermostatFan.setThermostatFanMode("on")
+        state.runThermostatFan = true
+    } else {
+        log.debug "RH not in actionable range: do nothing."
+    }   
 }
