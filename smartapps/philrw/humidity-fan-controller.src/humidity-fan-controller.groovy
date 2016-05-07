@@ -123,7 +123,7 @@ def checkMotion() {
 
     if (motionState.value == "inactive") {
         def elapsed = now() - motionState.date.time
-        def threshold = 990 * motionSensorTimeout
+        def threshold = 975 * motionSensorTimeout
 
         if (elapsed >= threshold) {
             def rh = rhSensor.currentValue("humidity")
