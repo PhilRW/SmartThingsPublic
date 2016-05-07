@@ -96,7 +96,7 @@ def motionActiveHandler(evnt) {
 def motionInactiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionInactiveHandler(${evnt})"
-        log.debug "Wait ${motionSensorTimeout} minutes for motion to stop..."
+        log.debug "Wait ${motionSensorTimeout} seconds for motion to stop..."
 
         runIn(motionSensorTimeout, checkMotion)
     }
