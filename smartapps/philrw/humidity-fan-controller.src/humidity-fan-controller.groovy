@@ -35,15 +35,15 @@ def prefPage() {
             input "rhSensor", "capability.relativeHumidityMeasurement", title: "Humidity sensor"
         }
         section("Settings") {
-            input "rhMax", "number", title: "Turn on fan above this level (RH%)", defaultValue: 60
-            input "rhTarget", "number", title: "Turn off fan below this level (RH%)", defaultValue: 50
+            input "rhMax", "number", title: "Turn on fan above this level (RH%)", defaultValue: 70
+            input "rhTarget", "number", title: "Turn off fan below this level (RH%)", defaultValue: 55
             input "runOnUnoccupied", "bool", title: "Only run when room is unoccupied?", defaultValue: false, submitOnChange: true
             if (runOnUnoccupied) {
-                input "motionSensor", "capability.motionSensor", title: "Which motion sensor?"
+                input "motionSensors", "capability.motionSensor", title: "Which motion sensors?", multiple: true
                 input "motionSensorTimeout", "number", title: "After how many seconds of inactivity?"
-                input "useThermostatFan", "bool", title: "Use thermostat fan?", defaultValue: false, submitOnChange: true
+                input "useThermostatFan", "bool", title: "Ignore occupancy with second fan?", defaultValue: false, submitOnChange: true
                 if (useThermostatFan) {
-                    input "thermostatFan", "capability.thermostatFanMode", title: "Thermostat fan"
+                    input "thermostatFan", "capability.switch", title: "Second fan switch"
                 }
             }
         }
@@ -76,8 +76,8 @@ def initialize() {
 
     subscribe(rhSensor, "humidity", rhHandler)
     if (runOnUnoccupied) {
-        subscribe(motionSensor, "motion.active", motionActiveHandler)
-        subscribe(motionSensor, "motion.inactive", motionInactiveHandler)
+        subscribe(motionSensors, "motion.active", motionActiveHandler)
+        subscribe(motionSensors, "motion.inactive", motionInactiveHandler)
     }
 }
 
@@ -119,9 +119,9 @@ def rhHandler(evnt) {
 def checkMotion() {
     log.trace "checkMotion()"
 
-    def motionState = motionSensor.currentState("motion")
+    def motionActive = motionSensors.findAll { it.currentValue("motion") == "active" }
 
-    if (motionState.value == "inactive") {
+    if (motionActive.size() > 0) {
         def elapsed = now() - motionState.date.time
         def threshold = 1000 * ( motionSensorTimeout - 1 )
 
@@ -167,14 +167,12 @@ def thermostatFanController(rh) {
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (state.runThermostatFan && rh < rhTarget) {
-        log.debug "Resetting thermostat fan..."
-        thermostatFan.setThermostatFanMode(state.previousFanMode)
+        log.debug "Turning off thermostat fan..."
+        thermostatFan.off()
         state.runThermostatFan = false
     } else if (!state.runThermostatFan && rh > rhMax) {
         log.debug "Turning on thermostat fan..."
-        state.previousFanMode = thermostatFan.currentValue("thermostatFanMode")
-        log.trace "Thermostat fan was set to ${state.previousFanMode}."
-        thermostatFan.setThermostatFanMode("on")
+        thermostatFan.on()
         state.runThermostatFan = true
     } else {
         log.debug "RH not in actionable range: do nothing."
