@@ -5,6 +5,7 @@
 *
 *	Version History
 *
+*	1.2		2016-05-21		Add fan state tracking
 *	1.1		2016-05-04		Optionally run automatically only when room is occupied
 *	1.0		2016-04-23		Initial version
 *
@@ -82,7 +83,7 @@ def initialize() {
 
 
 def tempChangeHandler(evnt) {
-    log.trace "tempChangeHandler(${evnt}) - temperature update"
+    log.trace "tempChangeHandler(${evnt}) - temperature update, state: ${state}"
     def temp = evnt.doubleValue
 
     if (runOnOccupied) {
@@ -95,7 +96,7 @@ def tempChangeHandler(evnt) {
 
 def motionActiveHandler(evnt) {
     if (runOnOccupied) {
-        log.trace "motionActiveHandler(${evnt}) - motion active"
+        log.trace "motionActiveHandler(${evnt}) - motion active, state: ${state}"
         def temp = theThermostat.currentState("temperature")
 
         checkTemp(temp.doubleValue)
@@ -105,44 +106,50 @@ def motionActiveHandler(evnt) {
 
 def motionInactiveHandler(evnt) {
     if (runOnOccupied) {
-        log.trace "motionInactiveHandler(${evnt}) - motion inactive"
+        log.trace "motionInactiveHandler(${evnt}) - motion inactive, state: ${state}"
 
         runIn(60 * motionSensorTimeout, checkMotion)
     }
 }
 
-
+i
 def checkTemp(temp) {
-    log.trace "checkTemp(${temp})"
+    log.trace "checkTemp(${temp}), state: ${state}"
 
     log.debug "Temp is ${temp}. Low/Med/Hi = ${lowThreshold}/${mediumThreshold}/${highThreshold}"
-    if (temp >= highThreshold) {
+    if (state.level != "high" && temp >= highThreshold) {
         log.debug "Setting level to high, 99"
         switches.setLevel(99);
-    } else if (temp >= mediumThreshold) {
+	state.level = "high"
+    } else if (state.level != "medium" && temp >= mediumThreshold) {
         log.debug "Setting level to medium, 67"
         switches.setLevel(67);
-    } else if (temp >= lowThreshold) {
+	state.level = "medium"
+    } else if (state.level != "low" && temp >= lowThreshold) {
         log.debug "Setting level to low, 33"
         switches.setLevel(33);
-    } else {
+	state.level = "low"
+    } else if (state.level != "off") {
         log.debug "Temperature not within range, setting level to off, 0"
         switches.setLevel(0)
-    }
+	state.level = "off"
+    } else {
+	log.debug "Everything is set up correctly, no change needed."
 }
 
 
 def checkMotion() {
-    log.trace "checkMotion()"
+    log.trace "checkMotion(), state: ${state}"
 
     def motionState = theMotionSensor.currentState("motion")
     def elapsed = now() - motionState.date.time
     def threshold = 1000 * ( ( 60 * motionSensorTimeout ) - 1 )
 
-    if (motionState.value == "inactive" && elapsed >= threshold) {
+    if (state.level != "off" && motionState.value == "inactive" && elapsed >= threshold) {
         log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): turn fan(s) off"
 
         switches.setLevel(0)
+	state.level = "off"
     } else {
         log.debug "Motion is active or not inactive long enough, check temperature"
         def temp = theThermostat.currentState("temperature")
