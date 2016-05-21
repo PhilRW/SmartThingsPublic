@@ -69,7 +69,7 @@ def updated() {
 }
 
 def initialize() {
-    log.trace "initialize()"
+    log.trace "initialize(), state: ${state}"
 
     state.runFan = false
     state.runThermostatFan = false
@@ -83,7 +83,7 @@ def initialize() {
 
 def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
-        log.trace "motionActiveHandler(${evnt})"
+        log.trace "motionActiveHandler(${evnt}), state: ${state}"
 
         if (state.runFan) {
             log.debug "Fan is running, turning off switch..."
@@ -95,15 +95,17 @@ def motionActiveHandler(evnt) {
 
 def motionInactiveHandler(evnt) {
     if (runOnUnoccupied) {
-        log.trace "motionInactiveHandler(${evnt})"
+        log.trace "motionInactiveHandler(${evnt}), state: ${state}"
         log.debug "Wait ${motionSensorTimeout} seconds for motion to stop..."
 
+		log.trace "setting state.evntLastMotionInactive = ${evnt.date.time}"
+		state.evntLastMotionInactive = evnt.date.time
         runIn(motionSensorTimeout, checkMotion)
     }
 }
 
 def rhHandler(evnt) {
-    log.trace "rhHandler(${evnt})"
+    log.trace "rhHandler(${evnt}), state: ${state}"
     def rh = evnt.value.toInteger()
 
     if (runOnUnoccupied) {
@@ -117,12 +119,12 @@ def rhHandler(evnt) {
 }
 
 def checkMotion() {
-    log.trace "checkMotion()"
+    log.trace "checkMotion(), state: ${state}"
 
     def motionActive = motionSensors.findAll { it.currentValue("motion") == "active" }
 
-    if (motionActive.size() > 0) {
-        def elapsed = now() - motionState.date.time
+    if (motionActive.size() == 0) {
+        def elapsed = now() - state.evntLastMotionInactive
         def threshold = 1000 * ( motionSensorTimeout - 1 )
 
         if (elapsed >= threshold) {
@@ -140,7 +142,7 @@ def checkMotion() {
 
 
 def fanController(rh) {
-    log.trace "fanController(${rh})"
+    log.trace "fanController(${rh}), state: ${state}"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (state.runFan) {
@@ -163,7 +165,7 @@ def fanController(rh) {
 
 
 def thermostatFanController(rh) {
-    log.trace "thermostatFanController(${rh})"
+    log.trace "thermostatFanController(${rh}), state: ${state}"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (state.runThermostatFan && rh < rhTarget) {
