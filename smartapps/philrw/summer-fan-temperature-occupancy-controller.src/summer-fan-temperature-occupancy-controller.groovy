@@ -41,9 +41,9 @@ def prefPage() {
             input "switches", "capability.switchLevel", title: "Fan(s) to control:", multiple: true, required: true
         }
         section("Settings") {
-            input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 22.5, required: false
+            input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 23, required: false
             input "mediumThreshold", "decimal", title: "On medium if at or above:", defaultValue: 25, required: false
-            input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27.5, required: false
+            input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27, required: false
             input "runOnOccupied", "bool", title: "Only run when room is occupied?", defaultValue: false, submitOnChange: true
             if (runOnOccupied) {
                 input "theMotionSensor", "capability.motionSensor", title: "Motion sensor:", multiple: false, required: true
@@ -112,7 +112,7 @@ def motionInactiveHandler(evnt) {
     }
 }
 
-i
+
 def checkTemp(temp) {
     log.trace "checkTemp(${temp}), state: ${state}"
 
@@ -120,21 +120,22 @@ def checkTemp(temp) {
     if (state.level != "high" && temp >= highThreshold) {
         log.debug "Setting level to high, 99"
         switches.setLevel(99);
-	state.level = "high"
+        state.level = "high"
     } else if (state.level != "medium" && temp >= mediumThreshold) {
         log.debug "Setting level to medium, 67"
         switches.setLevel(67);
-	state.level = "medium"
+        state.level = "medium"
     } else if (state.level != "low" && temp >= lowThreshold) {
         log.debug "Setting level to low, 33"
         switches.setLevel(33);
-	state.level = "low"
+        state.level = "low"
     } else if (state.level != "off") {
         log.debug "Temperature not within range, setting level to off, 0"
         switches.setLevel(0)
-	state.level = "off"
+        state.level = "off"
     } else {
-	log.debug "Everything is set up correctly, no change needed."
+        log.debug "Everything is set up correctly, no change needed."
+    }
 }
 
 
@@ -149,7 +150,7 @@ def checkMotion() {
         log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): turn fan(s) off"
 
         switches.setLevel(0)
-	state.level = "off"
+        state.level = "off"
     } else {
         log.debug "Motion is active or not inactive long enough, check temperature"
         def temp = theThermostat.currentState("temperature")
