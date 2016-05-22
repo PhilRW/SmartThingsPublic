@@ -71,9 +71,6 @@ def updated() {
 def initialize() {
     log.trace "initialize(), state: ${state}"
 
-    state.runFan = false
-    state.runThermostatFan = false
-
     subscribe(rhSensor, "humidity", rhHandler)
     if (runOnUnoccupied) {
         subscribe(motionSensors, "motion.active", motionActiveHandler)
@@ -85,10 +82,11 @@ def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt}), state: ${state}"
 
-        if (state.runFan) {
+        if (state.fanRunning && state.runFan) {
             log.debug "Fan is running, turning off switch..."
 
             theSwitch.off()
+            state.fanRunning = false
         }
     }
 }
@@ -98,8 +96,9 @@ def motionInactiveHandler(evnt) {
         log.trace "motionInactiveHandler(${evnt}), state: ${state}"
         log.debug "Wait ${motionSensorTimeout} seconds for motion to stop..."
 
-		log.trace "setting state.evntLastMotionInactive = ${evnt.date.time}"
-		state.evntLastMotionInactive = evnt.date.time
+        log.trace "setting state.evntLastMotionInactive = ${evnt.date.time}"
+        state.evntLastMotionInactive = evnt.date.time
+
         runIn(motionSensorTimeout, checkMotion)
     }
 }
@@ -146,18 +145,25 @@ def fanController(rh) {
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (state.runFan) {
-        if (rh < rhTarget) {
-            log.debug "Turning off switch..."
-            theSwitch.off()
+        if (rh < rhTarget) { 
             state.runFan = false
-        } else if (runOnUnoccupied) {
+            if (state.fanRunning) {
+                log.debug "Turning off switch..."
+                theSwitch.off()
+                state.fanRunning = false
+            }
+        } else if (!state.fanRunning && runOnUnoccupied) {
             log.debug "Reactivating switch..."
             theSwitch.on()
+            state.fanRunning = true
         }
     } else if (!state.runFan && rh > rhMax) {
-        log.debug "Turning on switch..."
-        theSwitch.on()
         state.runFan = true
+        if (!state.fanRunning) {
+            log.debug "Turning on switch..."
+            theSwitch.on()
+            state.fanRunning = true
+        }
     } else {
         log.debug "RH not in actionable range: do nothing."
     }   
