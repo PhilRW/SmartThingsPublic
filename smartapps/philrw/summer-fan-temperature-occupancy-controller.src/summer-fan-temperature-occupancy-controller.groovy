@@ -129,12 +129,12 @@ def checkTemp(temp) {
         log.debug "Setting level to low, 33"
         switches.setLevel(33);
         state.level = "low"
-    } else if (state.level != "off") {
-        log.debug "Temperature not within range, setting level to off, 0"
+    } else if (state.level != "off" && temp < lowThreshold) {
+        log.debug "Temperature below range, setting level to off, 0"
         switches.setLevel(0)
         state.level = "off"
     } else {
-        log.debug "Everything is set up correctly, no change needed."
+        log.debug "Everything is set correctly, no change needed."
     }
 }
 
