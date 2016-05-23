@@ -29,8 +29,8 @@ metadata {
 
     tiles {
         standardTile("switch", "device.switch", width: 2, height: 2, chanChangeIcon: true) {
-            state "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821"
             state "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff"
+            state "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821"
         }
 
         main "switch"
@@ -42,8 +42,8 @@ metadata {
 def parse(description) {
     log.debug "Parsing '${description}'"
 
-//    def pair = description.split(":")
-//    createEvent(name: pair[0].trim(), value: pair[1].trim())
+    //    def pair = description.split(":")
+    //    createEvent(name: pair[0].trim(), value: pair[1].trim())
 }
 
 def on() {
