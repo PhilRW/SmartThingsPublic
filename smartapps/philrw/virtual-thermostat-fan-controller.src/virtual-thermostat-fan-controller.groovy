@@ -31,11 +31,13 @@ preferences {
     }
 }
 
+
 def installed() {
     log.debug "Installed with settings: ${settings}"
 
     initialize()
 }
+
 
 def updated() {
     log.debug "Updated with settings: ${settings}"
@@ -44,28 +46,46 @@ def updated() {
     initialize()
 }
 
+
 def initialize() {
     state.theThermostatFanMode = theThermostatFan.currentValue("thermostatFanMode")
     state.running = false
     subscribe(theSwitch, "switch", switchHandler)
 }
 
+
 def switchHandler(evnt) {
     log.trace "switchHandler($evnt)"
-    if (state.running) {
-        if (evnt.value == "off") {
-            log.debug "Turning off fan..."
-            theThermostatFan.setThermostatFanMode(state.theThermostatFanMode)
-            state.running = false
-        }
+    if (evnt.value == "off") {
+        turnOff()
+    } else if (evnt.value == "on") {
+        turnOn()
+    }
+}
+
+
+def turnOn() {
+    log.trace "turnOn()"
+
+    if (!state.running) {
+        log.debug "Turning on thermostat fan..."
+        state.theThermostatFanMode = theThermostatFan.currentValue("thermostatFanMode")
+        theThermostatFan.setThermostatFanMode("on")
+        state.running = true
     } else {
-        if (evnt.value == "on") {
-            log.debug "Turning on fan..."
-            state.theThermostatFanMode = theThermostatFan.currentValue("thermostatFanMode")
-            theThermostatFan.setThermostatFanMode("on")
-            state.running = true
-        } else {
-            log.debug "OFF received but not running. Ignoring."
-        }
+        log.debug "Thermostat fan already running. Command ignored."
+    }
+}
+
+
+def turnOff() {
+    log.trace "turnOff()"
+
+    if (state.running) {
+        log.debug "Resetting thermostat fan to ${state.theThermostatFanMode}..."
+        theThermostatFan.setThermostatFanMode(state.theThermostatFanMode)
+        state.running = false
+    } else {
+        log.debug "Thermostat fan mode currently not overridden by this app. Command ignored."
     }
 }
