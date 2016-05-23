@@ -28,12 +28,14 @@ definition(
     category: "My Apps",
     iconUrl:   "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn.png",
     iconX2Url: "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn@2x.png",
-    iconX3Url: "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn@2x.png")
+    iconX3Url: "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn@2x.png"
+)
 
 
 preferences {
     page(name: "prefPage")
 }
+
 
 def prefPage() {
     dynamicPage(name: "prefPage", title: "Fan Temperature + Occupancy Controller", install: true, uninstall: true) {
@@ -55,7 +57,6 @@ def prefPage() {
             label title: "Assign a name", required: false
             mode title: "Set for specific mode(s)"
         }
-
     }
 }
 
