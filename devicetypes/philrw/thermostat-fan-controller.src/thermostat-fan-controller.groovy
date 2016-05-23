@@ -42,8 +42,8 @@ metadata {
 def parse(description) {
     log.debug "Parsing '${description}'"
 
-    def pair = description.split(":")
-    createEvent(name: pair[0].trim(), value: pair[1].trim())
+//    def pair = description.split(":")
+//    createEvent(name: pair[0].trim(), value: pair[1].trim())
 }
 
 def on() {
@@ -58,4 +58,10 @@ def off() {
     log.debug "parent: ${parent}"
 
     parent.stop("controller")
+}
+
+def controllerEvent(eventData) {
+    log.trace "controllerEvent(${eventData})"
+
+    sendEvent(eventData)
 }
