@@ -82,11 +82,10 @@ def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt}), state: ${state}"
 
-        if (state.fanRunning && state.runFan) {
+        if (state.runFan) {
             log.debug "Fan is running, turning off switch..."
 
-            theSwitch.off()
-            state.fanRunning = false
+            turnOff()
         }
     }
 }
@@ -140,33 +139,57 @@ def checkMotion() {
 }
 
 
+def turnOn() {
+    log.trace "turnOn(), state: ${state}"
+
+    if (!state.switchOn) {
+        log.debug "Turning on switch..."
+        theSwitch.on()
+        state.switchOn = true
+    } else {
+        log.debug "Switch is already on."
+    }
+}
+
+
+def turnOff() {
+    log.trace "turnOff(), state: ${state}"
+
+    if (state.switchOn) {
+        log.debug "Turning off switch..."
+        theSwitch.off()
+        state.switchOn = false
+    } else {
+        log.debug "Switch is already off."
+    }
+}
+
+
 def fanController(rh) {
     log.trace "fanController(${rh}), state: ${state}"
 
     log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
     if (state.runFan) {
-        if (rh < rhTarget) { 
+        if (rh < rhTarget) {
+            log.debug "RH back to normal, stop exhausting humid air."
+
             state.runFan = false
-            if (state.fanRunning) {
-                log.debug "Turning off switch..."
-                theSwitch.off()
-                state.fanRunning = false
-            }
-        } else if (!state.fanRunning && runOnUnoccupied) {
-            log.debug "Reactivating switch..."
-            theSwitch.on()
-            state.fanRunning = true
+            turnOff()
+        } else {
+            turnOn()
         }
-    } else if (!state.runFan && rh > rhMax) {
-        state.runFan = true
-        if (!state.fanRunning) {
-            log.debug "Turning on switch..."
-            theSwitch.on()
-            state.fanRunning = true
-        }
+    } else if (!state.runFan) {
+        if (rh > rhMax) {
+            log.debug "RH too high, start exhausting humid air."
+
+            state.runFan = true
+            turnOn()
+        } else {
+            log.debug "RH not in actionable range: do nothing."
+        }   
     } else {
-        log.debug "RH not in actionable range: do nothing."
-    }   
+        log.error "State is neither on nor off."
+    }
 }
 
 
@@ -186,3 +209,4 @@ def thermostatFanController(rh) {
         log.debug "RH not in actionable range: do nothing."
     }   
 }
+
