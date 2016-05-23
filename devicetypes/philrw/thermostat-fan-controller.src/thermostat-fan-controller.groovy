@@ -12,7 +12,7 @@
 *
 */
 metadata {
-    definition (name: "Thermostat Fan Controller", namespace: "PhilRW", author: "PhilRW") {
+    definition (name: "Thermostat Fan Controller", namespace: "PhilRW", author: "Philip Rosenberg-Watt") {
         capability "Switch"
     }
 
