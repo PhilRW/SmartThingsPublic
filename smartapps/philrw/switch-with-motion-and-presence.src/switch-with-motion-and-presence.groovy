@@ -61,18 +61,18 @@ def motionActiveHandler(evnt) {
     def start = timeToday(startTime)
     def end = timeToday(endTime)
     def presence = thePresenceSensor.currentValue("presence")
-    
+
     log.debug "Presence: $presence, start.time: $start.time, end.time: $end.time"
 
     if (presence == "present" && start.time <= now() && now() <= end.time ) {
-        theSwitch.on()
+        turnOn()
     }
 }
 
 def motionInactiveHandler(evnt) {
     log.debug "motionInactiveHandler($evnt)"
 
-    runIn(motionSensorTimeout, checkMotion)
+    runIn((motionSensorTimeout * 60), checkMotion)
 }
 
 def checkMotion() {
@@ -87,11 +87,35 @@ def checkMotion() {
         if (elapsed >= threshold) {
             log.debug "Motion has stayed inactive long enough since last check (${elapsed} ms): turn off switch"
 
-            theSwitch.off()
+            turnOff()
         } else {
             log.debug "Motion has not stayed inactive long enough since last check (${elapsed} ms): do nothing"
         }
     } else {
         log.debug "Motion is active: do nothing."
+    }
+}
+
+def turnOn() {
+    log.trace "turnOn(), state: ${state}"
+
+    if (!state.switchOn) {
+        log.debug "Turning on switch..."
+        theSwitch.on()
+        state.switchOn = true
+    } else {
+        log.debug "Switch already on"
+    }
+}
+
+def turnOff() {
+    log.trace "turnOff(), state: ${state}"
+
+    if (state.switchOn) {
+        log.debug "Turning off switch..."
+        theSwitch.off()
+        state.switchOn = false
+    } else {
+        log.debug "Switch already off"
     }
 }
