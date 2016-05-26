@@ -51,28 +51,25 @@ def updated() {
 def initialize() {
     log.trace "initialize()"
 
-    subscribe(theMotionSensor, "motion.active", motionActiveHandler)
-    subscribe(theMotionSensor, "motion.inactive", motionInactiveHandler)
+    subscribe(theMotionSensor, "motion.active", motionHandler)
 }
 
-def motionActiveHandler(evnt) {
-    log.debug "motionActiveHandler($evnt)"
+def motionHandler(evnt) {
+    log.debug "motionHandler($evnt)"
 
     def start = timeToday(startTime)
     def end = timeToday(endTime)
     def presence = thePresenceSensor.currentValue("presence")
 
-    log.debug "Presence: $presence, start.time: $start.time, end.time: $end.time"
+    log.debug "${thePresenceSensor.displayName} presence: ${presence}, start.time: ${start.time}, end.time: ${end.time}"
 
-    if (presence == "present" && start.time <= now() && now() <= end.time ) {
-        turnOn()
+    if (presence == "present") {
+        if (evnt.value == "active" && start.time <= now() && now() <= end.time ) {
+            turnOn()
+        } else if (evnt.value == "inactive") {
+            runIn((motionSensorTimeout * 60), checkMotion)
+        }
     }
-}
-
-def motionInactiveHandler(evnt) {
-    log.debug "motionInactiveHandler($evnt)"
-
-    runIn((motionSensorTimeout * 60), checkMotion)
 }
 
 def checkMotion() {
