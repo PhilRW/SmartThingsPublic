@@ -116,15 +116,16 @@ def setLevel(lvl) {
     log.trace "setLevel(${lvl})"
 
     def changeSwitches = switches.findAll { it.currentValue("currentState") != lvl }
+
     if (changeSwitches.size() > 0) {
         log.debug "Changing level to ${lvl}."
         if (lvl == "OFF") {
-            changeSwitches.off()
+            switches.off()
         } else {
-            changeSwitches.setLevel(lvl)
+            switches.setLevel(lvl)
         }
-    } else {
-        log.debug "Switch(es) already at ${lvl}, doing nothing."
+    } else { 
+        log.debug "Switch(es) already set to ${lvl}, doing nothing."
     }
 }
 
