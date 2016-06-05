@@ -96,23 +96,23 @@ def checkMotion() {
 def turnOn() {
     log.trace "turnOn(), state: ${state}"
 
-    if (!state.switchOn) {
-        log.debug "Turning on switch..."
-        theSwitch.on()
-        state.switchOn = true
-    } else {
-        log.debug "Switch already on"
-    }
+    //    if (!state.switchOn) {
+    log.debug "Turning on switch..."
+    theSwitch.on()
+    state.switchOn = true
+    //    } else {
+    //        log.debug "Switch already on"
+    //    }
 }
 
 def turnOff() {
     log.trace "turnOff(), state: ${state}"
 
-    if (state.switchOn) {
-        log.debug "Turning off switch..."
-        theSwitch.off()
-        state.switchOn = false
-    } else {
-        log.debug "Switch already off"
-    }
+    //	if (state.switchOn) {
+    log.debug "Turning off switch..."
+    theSwitch.off()
+    state.switchOn = false
+    //} else {
+    //    log.debug "Switch already off"
+    //}
 }
