@@ -27,9 +27,8 @@ definition(
     author: "Philip Rosenberg-Watt",
     description: "Sets fan speed based on temperature and (optionally) motion",
     category: "My Apps",
-    iconUrl:   "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn.png",
-    iconX2Url: "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn@2x.png",
-    iconX3Url: "http://cdn.device-icons.smartthings.com/Appliances/appliances11-icn@2x.png"
+    iconUrl:   "http://cdn.device-icons.smartthings.com/Lighting/light24-icn.png",
+    iconX2Url: "http://cdn.device-icons.smartthings.com/Lighting/light24-icn@2x.png",
 )
 
 
@@ -45,9 +44,9 @@ def prefPage() {
             input "switches", "capability.switchLevel", title: "Fan(s) to control:", multiple: true, required: true
         }
         section("Settings") {
-            input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 23, required: false
-            input "mediumThreshold", "decimal", title: "On medium if at or above:", defaultValue: 25, required: false
-            input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27, required: false
+            input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 23, required: true
+            input "mediumThreshold", "decimal", title: "On medium if at or above:", defaultValue: 25, required: true
+            input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27, required: true
             input "runOnOccupied", "bool", title: "Only run when room is occupied?", defaultValue: false, submitOnChange: true
             if (runOnOccupied) {
                 input "theMotionSensor", "capability.motionSensor", title: "Motion sensor:", multiple: false, required: true
