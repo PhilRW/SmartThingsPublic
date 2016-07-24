@@ -26,7 +26,7 @@ definition(
 
 preferences {
 	section("Override Mode") {
-    	input "overrideMode", "mode", title: "Ignore commands if in this mode (optional):"
+    	input "overrideModes", "mode", title: "Ignore commands if in these modes (optional):", multiple: true
     }
 }
 
@@ -48,7 +48,7 @@ def getMode() {
 }
 
 void setMode() {
-	if (location.currentMode != overrideMode) {
+	if (!overrideModes.contains(location.currentMode)) {
     	def modeName = params.modeName
     	def found = false
     	for (m in location.modes) {
