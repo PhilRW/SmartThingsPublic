@@ -35,7 +35,7 @@ def prefPage() {
             input "rhSensor", "capability.relativeHumidityMeasurement", title: "Humidity sensor"
         }
         section("Settings") {
-            input "rhMax", "number", title: "Turn on fan above this level (RH%)", defaultValue: 70
+            input "rhMax", "number", title: "Turn on fan above this level (RH%)", defaultValue: 72
             input "rhTarget", "number", title: "Turn off fan below this level (RH%)", defaultValue: 55
             input "runOnUnoccupied", "bool", title: "Only run when room is unoccupied?", defaultValue: false, submitOnChange: true
             if (runOnUnoccupied) {
