@@ -28,6 +28,7 @@ preferences {
     page(name: "prefPage")
 }
 
+
 def prefPage() {
     dynamicPage(name: "prefPage", title: "Humidity Fan Controller", install: true, uninstall: true) {
         section("Devices") {            
@@ -41,9 +42,9 @@ def prefPage() {
             if (runOnUnoccupied) {
                 input "motionSensors", "capability.motionSensor", title: "Which motion sensors?", multiple: true
                 input "motionSensorTimeout", "number", title: "After how many seconds of inactivity?"
-                input "useThermostatFan", "bool", title: "Ignore occupancy with second fan?", defaultValue: false, submitOnChange: true
-                if (useThermostatFan) {
-                    input "thermostatFan", "capability.switch", title: "Second fan switch"
+                input "useBackupSwitch", "bool", title: "Ignore occupancy with second fan?", defaultValue: false, submitOnChange: true
+                if (useBackupSwitch) {
+                    input "backupSwitch", "capability.switch", title: "Second fan switch"
                 }
             }
         }
@@ -61,12 +62,14 @@ def installed() {
     initialize()
 }
 
+
 def updated() {
     log.debug "Updated with settings: ${settings}"
 
     unsubscribe()
     initialize()
 }
+
 
 def initialize() {
     log.trace "initialize(), state: ${state}"
@@ -78,17 +81,19 @@ def initialize() {
     }
 }
 
+
 def motionActiveHandler(evnt) {
     if (runOnUnoccupied) {
         log.trace "motionActiveHandler(${evnt}), state: ${state}"
 
-        if (state.runFan) {
+        if (state.runFan && state.switchOn) {
             log.debug "Fan is running, turning off switch..."
-
-            turnOff()
+            theSwitch.off()
+            state.switchOn = false
         }
     }
 }
+
 
 def motionInactiveHandler(evnt) {
     if (runOnUnoccupied) {
@@ -102,19 +107,33 @@ def motionInactiveHandler(evnt) {
     }
 }
 
+
 def rhHandler(evnt) {
     log.trace "rhHandler(${evnt}), state: ${state}"
     def rh = evnt.value.toInteger()
 
+    log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
+
+    if (rh < rhTarget && state.runFan) {
+        log.debug "RH back to normal, stop exhausting humid air."
+        state.runFan = false
+    } else if (rh > rhMax && !state.runFan) {
+        log.debug "RH too high, start exhausting humid air."
+        state.runFan = true
+    } else {
+        log.debug "Nothing to do."
+    }
+
     if (runOnUnoccupied) {
         checkMotion()
-        if (useThermostatFan) {
-            thermostatFanController(rh)
+        if (useBackupSwitch) {
+            backupFanController()
         }
     } else {
-        fanController(rh)
+        fanController()
     }
 }
+
 
 def checkMotion() {
     log.trace "checkMotion(), state: ${state}"
@@ -126,10 +145,8 @@ def checkMotion() {
         def threshold = 1000 * ( motionSensorTimeout - 1 )
 
         if (elapsed >= threshold) {
-            def rh = rhSensor.currentValue("humidity")
-
-            log.debug "Motion has stayed inactive long enough since last check (${elapsed} ms): fanController(${rh})"
-            fanController(rh)
+            log.debug "Motion has stayed inactive long enough since last check (${elapsed} ms): call fanController()"
+            fanController()
         } else {
             log.debug "Motion has not stayed inactive long enough since last check (${elapsed} ms): do nothing"
         }
@@ -139,74 +156,32 @@ def checkMotion() {
 }
 
 
-def turnOn() {
-    log.trace "turnOn(), state: ${state}"
+def fanController() {
+    log.trace "fanController(), state: ${state}"
 
-    if (!state.switchOn) {
+    if (state.runFan && !state.switchOn) {
         log.debug "Turning on switch..."
         theSwitch.on()
         state.switchOn = true
-    } else {
-        log.debug "Switch is already on."
-    }
-}
-
-
-def turnOff() {
-    log.trace "turnOff(), state: ${state}"
-
-    if (state.switchOn) {
+    } else if (!state.runFan && state.switchOn) {
         log.debug "Turning off switch..."
         theSwitch.off()
         state.switchOn = false
-    } else {
-        log.debug "Switch is already off."
     }
 }
 
 
-def fanController(rh) {
-    log.trace "fanController(${rh}), state: ${state}"
+def backupFanController() {
+    log.trace "backupFanController(), state: ${state}"
 
-    log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
-    if (state.runFan) {
-        if (rh < rhTarget) {
-            log.debug "RH back to normal, stop exhausting humid air."
-
-            state.runFan = false
-            turnOff()
-        } else {
-            turnOn()
-        }
-    } else if (!state.runFan) {
-        if (rh > rhMax) {
-            log.debug "RH too high, start exhausting humid air."
-
-            state.runFan = true
-            turnOn()
-        } else {
-            log.debug "RH not in actionable range: do nothing."
-        }   
-    } else {
-        log.error "State is neither on nor off."
+    if (state.runFan && !state.backupSwitchOn) {
+        log.debug "Turning on backup fan..."
+        state.backupSwitchOn = true
+        backupSwitch.on()
+    } else if (!state.runFan && state.backupSwitchOn) {
+        log.debug "Turning off backup fan..."        
+        state.backupSwitchOn = false
+        backupSwitch.off()
     }
-}
-
-
-def thermostatFanController(rh) {
-    log.trace "thermostatFanController(${rh}), state: ${state}"
-
-    log.debug "Current RH is ${rh}%, max is ${rhMax}%, target is ${rhTarget}%."
-    if (state.runThermostatFan && rh < rhTarget) {
-        log.debug "Turning off thermostat fan..."
-        thermostatFan.off()
-        state.runThermostatFan = false
-    } else if (!state.runThermostatFan && rh > rhMax) {
-        log.debug "Turning on thermostat fan..."
-        thermostatFan.on()
-        state.runThermostatFan = true
-    } else {
-        log.debug "RH not in actionable range: do nothing."
-    }   
 }
 
