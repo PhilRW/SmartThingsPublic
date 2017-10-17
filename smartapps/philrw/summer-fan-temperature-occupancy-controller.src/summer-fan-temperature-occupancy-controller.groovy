@@ -5,6 +5,7 @@
 *
 *	Version History
 *
+*   1.5     2017-10-17      Add winter mode, runs fan(s) on low for 24h since last motion, includes optional override switch
 *	1.4		2016-06-04		Remove state tracking, instead check level of switch(es)
 *	1.3		2016-05-23		Abstract out state tracking to separate method
 *	1.2		2016-05-21		Add fan state tracking
@@ -44,13 +45,22 @@ def prefPage() {
             input "switches", "capability.switchLevel", title: "Fan(s) to control:", multiple: true, required: true
         }
         section("Settings") {
-            input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 23, required: true
-            input "mediumThreshold", "decimal", title: "On medium if at or above:", defaultValue: 25, required: true
-            input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27, required: true
-            input "runOnOccupied", "bool", title: "Only run when room is occupied?", defaultValue: false, submitOnChange: true
-            if (runOnOccupied) {
-                input "theMotionSensor", "capability.motionSensor", title: "Motion sensor:", multiple: false, required: true
-                input "motionSensorTimeout", "number", title: "Off after this many minutes:", required: true
+            input "winterMode", "bool", title: "Enable winter mode (run on low for 24h)?", defaultValue: false, submitOnChange: true
+            if (winterMode) {
+                input "theWinterMotionSensor", "capability.motionSensor", title: "Winter motion sensor:", multiple: false, required: true
+                input "winterSwitchOverride", "bool", title: "Use override switch?", defaultValue: false, submitOnChange: true
+                if (winterSwitchOverride) {
+                    input "theWinterSwitches", "capability.switch", title: "Turn off with switch(es) turn on:", multiple: true, required: true
+                }
+            } else {
+                input "lowThreshold", "decimal", title: "On low if at or above:", defaultValue: 23, required: true
+                input "mediumThreshold", "decimal", title: "On medium if at or above:", defaultValue: 25, required: true
+                input "highThreshold", "decimal", title: "On high if at or above:", defaultValue: 27, required: true
+                input "runOnOccupied", "bool", title: "Only run when room is occupied?", defaultValue: false, submitOnChange: true
+                if (runOnOccupied) {
+                    input "theMotionSensor", "capability.motionSensor", title: "Motion sensor:", multiple: false, required: true
+                    input "motionSensorTimeout", "number", title: "Off after this many minutes:", required: true
+                }
             }
         }
         section([title: "App Instance", mobileOnly: true]) {
@@ -76,12 +86,66 @@ def updated() {
 
 def initialize() {
     log.trace "Summer Fan Occupancy Controller - initialize()"
-    subscribe(theThermostat, "temperature", tempChangeHandler)
-    if (runOnOccupied) {
-        log.debug "runOnOccupied: ${runOnOccupied}, subscribing to motion handler..."
-        subscribe(theMotionSensor, "motion", motionHandler)
+    if (winterMode) {
+        subscribe(theWinterMotionSensor, "motion", winterMotionHandler)
+        if (winterSwitchOverride) {
+            subscribe(theWinterSwitches, "switch.on", winterSwitchHandler)
+        }
+    } else {
+        subscribe(theThermostat, "temperature", tempChangeHandler)
+        if (runOnOccupied) {
+            log.debug "runOnOccupied: ${runOnOccupied}, subscribing to motion handler..."
+            subscribe(theMotionSensor, "motion", motionHandler)
+        }
     }
 }
+
+
+def winterMotionHandler(evnt) {
+    log.trace "winterHandler(${evnt}), value = ${evnt.value}"
+
+    def override = false
+
+    if (winterSwitchOverride) {
+        theWinterSwitches.each {
+            if (it.currentValue("switch") == "on") {
+                override = true
+            }
+        }
+    }
+
+    if (override) {
+        log.trace "Override active, not turning on fan."
+    } else {
+        setLevel("LOW")
+        runIn(86400, winterCheckMotion)
+    }
+}
+
+
+def winterSwitchHandler(evnt) {
+    log.trace "winterSwitchHandler(${evnt}), value = ${evnt.value}"
+
+    setLevel("OFF")
+}
+
+
+def winterCheckMotion() {
+    log.trace "winterCheckMotion()"
+
+    def motionState = theWinterMotionSensor.currentState("motion")
+    def elapsed = now() - motionState.date.time
+    def threshold = 1000 * ( 86400 - 100 )
+
+    if (motionState.value == "inactive" && elapsed >= threshold) {
+        log.debug "Motion has stayed inactive long enough since last check ($elapsed ms): turn fan(s) off"
+
+        setLevel("OFF")
+    } else {
+        log.debug "Motion is active or not inactive long enough, leaving on"
+    }
+}
+
 
 
 def tempChangeHandler(evnt) {
