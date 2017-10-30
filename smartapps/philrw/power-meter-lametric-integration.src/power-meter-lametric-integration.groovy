@@ -56,7 +56,8 @@ def initialize() {
     subscribe(theMeter, "power", powerHandler)
     if (showChart) {
         state.ints = new int[37]
-        runEvery1Minute(updateChart)
+        updateChart()
+        runEvery5Minutes(updateChart)
     }
 }
 
@@ -117,7 +118,7 @@ def updateChart() {
     log.trace("updateChart() curPower: ${curPower}")
 
     log.trace "state.ints[] pre-shift: ${state.ints}"
-    for (int i = 37-1; i > 0; i--) {                
+    for (int i = 37-1; i > 0; i--) {
         state.ints[i] = state.ints[i-1];
     }
     state.ints[0] = curPower
@@ -143,7 +144,7 @@ def sendUpdate() {
     log.trace "sendUpdate()"
 
     def myFrames = [state.frame0]
-    if (showChart) {
+    if (showChart && state.frame1 != null) {
         myFrames = [state.frame0, state.frame1]
     }
 
@@ -155,7 +156,7 @@ def sendUpdate() {
         ]
     ]
 
-    log.debug "body: ${body}"
+    log.debug "frames: ${myFrames}"
 
     try {
         httpPostJson(params) { resp ->
