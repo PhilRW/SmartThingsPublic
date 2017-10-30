@@ -117,10 +117,10 @@ def updateChart() {
     log.trace("updateChart() curPower: ${curPower}")
 
     log.trace "state.ints[] pre-shift: ${state.ints}"
-    for (int i = 0; i < 37-1; i++) {                
-        state.ints[i] = state.ints[i+1];
+    for (int i = 37-1; i > 0; i--) {                
+        state.ints[i] = state.ints[i-1];
     }
-    state.ints[36] = curPower
+    state.ints[0] = curPower
     log.trace "state.ints[] post-shift: ${state.ints}"
 
     def points = new int[37]
@@ -155,7 +155,7 @@ def sendUpdate() {
         ]
     ]
 
-    log.debug "params: ${params}"
+    log.debug "body: ${body}"
 
     try {
         httpPostJson(params) { resp ->
