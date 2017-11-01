@@ -27,7 +27,8 @@ definition(
 preferences {
     section("Title") {
         input "theMeter", "capability.powerMeter", title: "Meter to monitor:", required: true
-        input "showChart", "bool", title: "Enable history graph?", defaultValue: false, submitOnChange: true
+        input "showEnergy", "bool", title: "Enable energy display?", defaultValue: false
+        input "showChart", "bool", title: "Enable history graph?", defaultValue: false
     }
 }
 
@@ -58,6 +59,9 @@ def initialize() {
         state.ints = new int[37]
         updateChart()
         runEvery5Minutes(updateChart)
+    }
+    if (showEnergy) {
+        subscribe(theMeter, "energy", energyHandler)
     }
 }
 
@@ -111,6 +115,19 @@ def powerHandler(evnt) {
 }
 
 
+def energyHandler(evnt) {
+    log.trace "energyHandler(${evnt.value})"
+
+    def energy = Math.round(new BigDecimal(evnt.value))
+
+    state.frame1 = [
+        text: "${energy} KWh",
+        index: 1
+    ]
+
+}
+
+
 def updateChart() {
     log.trace "updateChart()"
 
@@ -130,9 +147,9 @@ def updateChart() {
     }
     log.debug "points[]: ${points}"
 
-    state.frame1 = [
-        index: 1,
-        chartData: points
+    state.frame2 = [
+        chartData: points,
+        index: 2,
     ]
 
     sendUpdate()
@@ -143,9 +160,13 @@ def updateChart() {
 def sendUpdate() {
     log.trace "sendUpdate()"
 
-    def myFrames = [state.frame0]
-    if (showChart && state.frame1 != null) {
-        myFrames = [state.frame0, state.frame1]
+    def myFrames = []
+    myFrames << state.frame0
+    if (showEnergy && state.frame1 != null) {
+        myFrames << state.frame1
+    }
+    if (showChart && state.frame2 != null) {
+        myFrames << state.frame2
     }
 
     def params = [
@@ -157,6 +178,7 @@ def sendUpdate() {
     ]
 
     log.debug "frames: ${myFrames}"
+    log.debug "params: ${params}"
 
     try {
         httpPostJson(params) { resp ->
