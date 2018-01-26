@@ -29,6 +29,7 @@ preferences {
         input "theMeter", "capability.powerMeter", title: "Meter to monitor:", required: true
         input "showEnergy", "bool", title: "Enable energy display?", defaultValue: false
         input "showChart", "bool", title: "Enable history graph?", defaultValue: false
+        input "showTou", "bool", title: "Show TOU billing rate?", defaultValue: false
     }
 }
 
@@ -58,10 +59,18 @@ def initialize() {
     if (showChart) {
         state.ints = new int[37]
         updateChart()
-        runEvery5Minutes(updateChart)
+        runEvery30Minutes(updateChart)
     }
     if (showEnergy) {
         subscribe(theMeter, "energy", energyHandler)
+    }
+    if (showTou) {
+        log.trace "showTou true, scheduling cron jobs..."
+
+        schedule("0 0 9 1/1 * ? *", shoulderHandler)
+        schedule("0 0 14 ? * MON-FRI *", onPeakHandler)
+        schedule("0 0 18 ? * MON-FRI *", shoulderWeekdayHandler)
+        schedule("0 0 21 1/1 * ? *", offPeakHandler)
     }
 }
 
@@ -152,8 +161,53 @@ def updateChart() {
         index: 2,
     ]
 
-    sendUpdate()
+    //    sendUpdate()
 
+}
+
+
+def shoulderHandler() {
+    log.trace "shoulderHandler()"
+
+    setTou("shoulder", "a11219")
+
+    sendUpdate()
+}
+
+
+def onPeakHandler() {
+    log.trace "onPeakHandler()"
+
+    setTou("on-peak", "a11217")
+
+    sendUpdate()
+}
+
+
+def shoulderWeekdayHandler() {
+    log.trace "onPeakHandler()"
+
+    shoulderHandler()
+}
+
+
+def offPeakHandler() {
+    log.trace "offPeakHandler()"
+
+    setTou("off-peak", "a11218")
+
+    sendUpdate()
+}
+
+
+def setTou(txt, icn) {
+    log.trace "setTou(${val}, ${icn})"
+
+    state.frame3 = [
+        text: txt,
+        icon: icn,
+        index: 3
+    ]
 }
 
 
@@ -167,6 +221,9 @@ def sendUpdate() {
     }
     if (showChart && state.frame2 != null) {
         myFrames << state.frame2
+    }
+    if (showTou && state.frame3 != null) {
+        myFrames << state.frame3
     }
 
     def params = [
@@ -188,3 +245,5 @@ def sendUpdate() {
         log.error "something went wrong: $e"
     }
 }
+
+
