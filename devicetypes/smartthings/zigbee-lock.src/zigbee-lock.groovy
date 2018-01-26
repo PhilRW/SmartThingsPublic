@@ -27,11 +27,12 @@ metadata {
 		capability "Configuration"
 		capability "Health Check"
 
+		fingerprint profileId: "0104", inClusters: "0000,0001,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRD220/240 TSDB", deviceJoinName: "Yale Touch Screen Deadbolt Lock"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRL220 TS LL", deviceJoinName: "Yale Touch Screen Lever Lock"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRD210 PB DB", deviceJoinName: "Yale Push Button Deadbolt Lock"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRD220/240 TSDB", deviceJoinName: "Yale Touch Screen Deadbolt Lock"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRL210 PB LL", deviceJoinName: "Yale Push Button Lever Lock"
-		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRD226/246 TSDB", deviceJoinName: "Yale Touch Screen Deadbolt Lock"
+		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0009,000A,0101,0020", outClusters: "000A,0019", manufacturer: "Yale", model: "YRD226/246 TSDB", deviceJoinName: "Yale Assure Lock"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0004,0005,0009,0020,0101,0402,0B05,FDBD", outClusters: "000A,0019", manufacturer: "Kwikset", model: "SMARTCODE_DEADBOLT_5", deviceJoinName: "Kwikset 5-Button Deadbolt"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0004,0005,0009,0020,0101,0402,0B05,FDBD", outClusters: "000A,0019", manufacturer: "Kwikset", model: "SMARTCODE_LEVER_5", deviceJoinName: "Kwikset 5-Button Lever"
 		fingerprint profileId: "0104", inClusters: "0000,0001,0003,0004,0005,0009,0020,0101,0402,0B05,FDBD", outClusters: "000A,0019", manufacturer: "Kwikset", model: "SMARTCODE_DEADBOLT_10", deviceJoinName: "Kwikset 10-Button Deadbolt"
@@ -242,9 +243,9 @@ def reloadAllCodes() {
 	sendEvent(lockCodesEvent(lockCodes))
 	def cmds = validateAttributes()
 	if (isYaleLock()) {
-		state.checkCode = 1
+		state.checkCode = state.checkCode ?: 1
 	} else {
-		state.checkCode = 0
+		state.checkCode = state.checkCode ?: 0
 	}
 	cmds += requestCode(state.checkCode)
 	
@@ -464,7 +465,7 @@ private def parseAttributeResponse(String description) {
 		responseMap.name = "battery"
 		responseMap.value = Math.round(Integer.parseInt(descMap.value, 16) / 2)
 		// Handling Yale locks incorrect battery reporting issue
-		if (isYaleLock()) {
+		if (reportsBatteryIncorrectly()) {
 			responseMap.value = Integer.parseInt(descMap.value, 16)
 		}
 		responseMap.descriptionText = "Battery is at ${responseMap.value}%"
@@ -528,7 +529,14 @@ private def parseCommandResponse(String description) {
 	def cmd = descMap.commandInt
 	def clusterInt = descMap.clusterInt
 	
-	if (clusterInt == CLUSTER_DOORLOCK && cmd == DOORLOCK_RESPONSE_OPERATION_EVENT) {
+	if (clusterInt == CLUSTER_DOORLOCK && (cmd == DOORLOCK_CMD_LOCK_DOOR || cmd == DOORLOCK_CMD_UNLOCK_DOOR)) {
+		log.trace "ZigBee DTH - Executing DOOR LOCK/UNLOCK SUCCESS for device ${deviceName} with description map:- $descMap"
+		// Reading lock state with a delay of 4200 as some locks do not report their state change
+		def cmdList = []
+		cmdList << "delay 4200"
+		cmdList << zigbee.readAttribute(CLUSTER_DOORLOCK, DOORLOCK_ATTR_LOCKSTATE).first()
+		result << response(cmdList)
+	} else if (clusterInt == CLUSTER_DOORLOCK && cmd == DOORLOCK_RESPONSE_OPERATION_EVENT) {
 		log.trace "ZigBee DTH - Executing DOORLOCK_RESPONSE_OPERATION_EVENT for device ${deviceName} with description map:- $descMap"
 		def eventSource = Integer.parseInt(data[0], 16)
 		def eventCode = Integer.parseInt(data[1], 16)
@@ -550,7 +558,6 @@ private def parseCommandResponse(String description) {
 			codeName = getCodeName(lockCodes, codeID)
 			responseMap.data = [ usedCode: codeID, codeName: codeName, method: "keypad" ]
 		} else if (eventSource == 1) {
-			desc = "via app"
 			responseMap.data = [ method: "command" ]
 		} else if (eventSource == 2) {
 			desc = "manually"
@@ -722,10 +729,15 @@ private def parseCommandResponse(String description) {
 				// This will be applicable when a slot is found occupied during scanning of lock
 				// Populating the 'lockCodes' attribute after scanning a code slot
 				log.debug "Scanning lock - code $codeID is occupied"
-				responseMap.value = "$codeID set"
-				responseMap.descriptionText = "${getStatusForDescription('set')} \"$codeName\""
+				def changeType = getChangeType(lockCodes, codeID)
+				responseMap.value = "$codeID $changeType"
+				responseMap.descriptionText = "${getStatusForDescription(changeType)} \"$codeName\""
 				responseMap.data = [ codeName: codeName ]
-				result << codeSetEvent(lockCodes, codeID, codeName)
+				if ("set" == changeType) {
+					result << codeSetEvent(lockCodes, codeID, codeName)
+				} else {
+					responseMap.displayed = false
+				}
 			}
 		} else {
 			// Code slot is empty - can happen when code creation fails or a slot is empty while scanning the lock
@@ -752,7 +764,6 @@ private def parseCommandResponse(String description) {
 				// Code slot is empty - can happen when a slot is found empty while scanning the lock
 				responseMap.value = "$codeID unset"
 				responseMap.descriptionText = "Code slot $codeID found empty during scanning"
-				responseMap.isStateChange = false
 				responseMap.displayed = false
 			}
 		}
@@ -1100,10 +1111,23 @@ def getLittleEndianHexString(numStr) {
  * @return true if the lock manufacturer is Yale, else false
  */
 def isYaleLock() {
-	if ("Yale" == device.getDataValue("manufacturer")) {
-		return true
-	}
-	return false
+	return "Yale" == device.getDataValue("manufacturer")
+}
+
+/**
+ * Utility function to check for specific models of Yale Lock that don't report battery correctly
+ *
+ * @return true if the lock has the bug
+ */
+def reportsBatteryIncorrectly() {
+	def badModels = [
+			"YRD220/240 TSDB",
+			"YRL220 TS LL",
+			"YRD210 PB DB",
+			"YRD220/240 TSDB",
+			"YRL210 PB LL",
+	]
+	return (isYaleLock() && device.getDataValue("model") in badModels)
 }
 
 /**
